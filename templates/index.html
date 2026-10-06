@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تدقيق الكلمات المفتاحية</title>
+<style>
+body{font-family:Tahoma,Arial,sans-serif;background:#f4f6fb;margin:0;color:#222}
+.box{max-width:640px;margin:60px auto;background:#fff;padding:32px;border-radius:12px;box-shadow:0 2px 12px #0001}
+h1{font-size:22px;margin:0 0 8px}
+p{color:#555;line-height:1.9}
+input,select{width:100%;padding:12px;margin:8px 0;border:1px solid #ccc;border-radius:8px;font-size:15px;box-sizing:border-box}
+button{width:100%;padding:12px;background:#1F4E78;color:#fff;border:0;border-radius:8px;font-size:16px;cursor:pointer}
+button:hover{background:#163a5a}
+.err{background:#fde8e8;color:#a00;padding:10px;border-radius:8px;margin-bottom:10px}
+ small{color:#888}
+</style>
+</head>
+<body>
+<div class="box">
+<h1>تدقيق الكلمات المفتاحية للموقع</h1>
+<p>دخل لينك الموقع وهيزحف صفحات المقالات ويطلعلك الكلمات المفتاحية والتعارضات بين الصفحات. النسخة المجانية لحد 40 صفحة.</p>
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+<form method="post" action="/audit">
+<input name="site" placeholder="https://example.com" required>
+<select name="limit">
+<option value="10">10 صفحات (سريع)</option>
+<option value="20" selected>20 صفحة</option>
+<option value="40">40 صفحة (شامل)</option>
+</select>
+<button type="submit">ابدأ التدقيق</button>
+</form>
+<p><small>الزحف بيحترم robots.txt وبياخد حوالي دقيقة.</small></p>
+</div>
+</body>
+</html>

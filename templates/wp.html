@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تحكم وردبريس</title>
+<style>
+body{font-family:Tahoma,Arial,sans-serif;background:#f4f6fb;margin:0;color:#222}
+.wrap{max-width:1000px;margin:20px auto;padding:0 12px}
+.card{background:#fff;padding:20px;border-radius:12px;box-shadow:0 2px 12px #0001;margin-bottom:16px}
+h1{font-size:20px} h2{font-size:17px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{border:1px solid #ddd;padding:8px;text-align:right;vertical-align:top}
+th{background:#1F4E78;color:#fff}
+input,select{padding:8px;margin:4px;border:1px solid #ccc;border-radius:8px;font-size:13px}
+button{padding:8px 14px;background:#1F4E78;color:#fff;border:0;border-radius:8px;cursor:pointer;font-size:13px;margin:2px}
+button:hover{background:#163a5a}
+.ok{background:#e6f7e6;color:#0a6b0a;padding:10px;border-radius:8px}
+.bad{background:#fde8e8;color:#a00;padding:10px;border-radius:8px}
+a{color:#1F4E78}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a href="/">تدقيق</a> | <b>تحكم وردبريس</b>
+<div class="card">
+<h1>تحكم وردبريس</h1>
+{% if status %}<p>{{ status }}</p>{% endif %}
+<p>الذكاء الاصطناعي: {{ 'متصل' if ai_ok else 'غير مضبوط (AI_API_KEY)' }}</p>
+<p><small>للتوصيل اضبط في Vercel ثم Environment Variables: WP_URL و WP_USER و WP_APP_PASSWORD و AI_API_KEY (واختياري AI_MODEL و AI_BASE_URL). كلمة مرور التطبيق من وردبريس: المستخدمون ثم حسابي ثم Application Passwords.</small></p>
+</div>
+{% if result %}
+<div class="card">
+<h2>النتيجة</h2>
+<div class="{{ 'ok' if result.ok else 'bad' }}">
+{% for m in result.messages %}<p>{{ m }}</p>{% endfor %}
+{% if result.link %}<p><a href="{{ result.link }}">فتح المقال</a></p>{% endif %}
+</div>
+</div>
+{% endif %}
+<div class="card">
+<h2>مقال جديد من كلمة</h2>
+<form method="post" action="/wp/run">
+<input type="hidden" name="action" value="new_article">
+<input name="keyword" placeholder="الكلمة المستهدفة" required>
+<select name="intent"><option value="commercial">commercial</option><option value="transactional">transactional</option><option value="informational">informational</option></select>
+<select name="mode"><option value="draft">مسودة (آمن)</option><option value="publish">نشر مباشر</option></select>
+<button type="submit">اكتب المقال</button>
+</form>
+</div>
+<div class="card">
+<h2>المقالات (الأحدث تعديلا)</h2>
+<table>
+<tr><th>العنوان</th><th>الحالة</th><th>تعديل سريع</th></tr>
+{% for p in posts %}
+<tr><td><a href="{{ p.link }}">{{ p.title }}</a></td><td>{{ p.status }}</td><td>
+<form method="post" action="/wp/run" style="display:inline">
+<input type="hidden" name="action" value="fix_title">
+<input type="hidden" name="post_id" value="{{ p.id }}">
+<input name="keyword" placeholder="الكلمة (اختياري)">
+<button type="submit">عنوان جديد</button>
+</form>
+<form method="post" action="/wp/run" style="display:inline">
+<input type="hidden" name="action" value="fix_meta">
+<input type="hidden" name="post_id" value="{{ p.id }}">
+<input name="keyword" placeholder="الكلمة (اختياري)">
+<button type="submit">وصف جديد</button>
+</form>
+<form method="post" action="/wp/run" style="display:inline">
+<input type="hidden" name="action" value="rewrite_content">
+<input type="hidden" name="post_id" value="{{ p.id }}">
+<input name="keyword" placeholder="الكلمة (اختياري)">
+<select name="mode"><option value="draft">مسودة</option><option value="publish">نشر</option></select>
+<button type="submit">إعادة كتابة</button>
+</form>
+</td></tr>
+{% else %}<tr><td colspan="3">لا توجد مقالات (تأكد من الاتصال).</td></tr>{% endfor %}
+</table>
+</div>
+</div>
+</body>
+</html>
