@@ -144,31 +144,110 @@ def crawl_site(base, limit=20, time_budget=50, delay=0.3):
     return pages, fetched
 
 
-def find_conflicts(pages):
-    def wordset(p):
-        return {w for phrase in [p["primary_keyword"], *p["secondary_keywords"]] for w in phrase.split()}
+GENERIC_WORDS = set("""ترجمة الترجمة translation الرسمية المعتمدة معتمدة معتمد مكتب مكاتب office offices
+جالينوس galenus official certified professional documents document services service accurate quality
+حيث وذلك لضمان بدقة بسرعة الخدمات خدمات شركة مصر egypt""".split())
+GENERIC_PRIMARIES = {"ترجمة", "translation", "الترجمة"}
 
-    rows = []
+
+def dwordset(p):
+    words = {w.lower() for phrase in [p["primary_keyword"], *p["secondary_keywords"]] for w in phrase.split()}
+    return words - STOP - GENERIC_WORDS
+
+
+def fullwordset(p):
+    return {w.lower() for phrase in [p["primary_keyword"], *p["secondary_keywords"]] for w in phrase.split()}
+
+
+def remainder(text, kw):
+    return text.replace(kw, "").strip()
+
+
+def same_angle(a, b, pa, pb):
+    ta = ((a.get("title") or "") + " " + (a.get("h1") or "")).strip()
+    tb = ((b.get("title") or "") + " " + (b.get("h1") or "")).strip()
+    ra, rb = remainder(ta, pa), remainder(tb, pb)
+    if not ra or not rb:
+        return True
+    if ra in rb or rb in ra:
+        return True
+    wa, wb = set(ra.split()), set(rb.split())
+    return len(wa & wb) / len(wa | wb) >= 0.5 if wa | wb else True
+
+
+def title_sim(a, b):
+    ta = ((a.get("title") or "") + " " + (a.get("h1") or "")).strip()
+    tb = ((b.get("title") or "") + " " + (b.get("h1") or "")).strip()
+    return SequenceMatcher(None, ta, tb).ratio() if ta and tb else 0.0
+
+
+def _jacc(x, y):
+    return len(x & y) / len(x | y) if x | y else 0
+
+
+def find_conflicts(pages):
+    rows, variations = [], []
     for a, b in combinations(pages, 2):
         pa, pb = a["primary_keyword"], b["primary_keyword"]
         if not pa or not pb:
             continue
         ratio = SequenceMatcher(None, pa, pb).ratio()
-        wa, wb = wordset(a), wordset(b)
-        jacc = len(wa & wb) / len(wa | wb) if wa | wb else 0
+        da, db = dwordset(a), dwordset(b)
+        shared = len(da & db)
+        t = title_sim(a, b)
+        sj = _jacc({w for ph in a["secondary_keywords"] for w in ph.lower().split()},
+                   {w for ph in b["secondary_keywords"] for w in ph.lower().split()})
+        generic = pa in GENERIC_PRIMARIES or pb in GENERIC_PRIMARIES
+        note = ("كلمة عامة: كل صفحة تحتاج استهدافا محددا (مستند/لغة/منطقة)"
+                if generic else "long-tail من نفس الـ short-tail بزوايا مختلفة: تبقى كما هي")
         if pa == pb:
-            kind, sev = "same_primary_keyword", "high"
+            angle = same_angle(a, b, pa, pb)
+            if t >= 0.75 or shared >= 3 or sj >= 0.5:
+                if not angle and shared <= 1 and sj < 0.3:
+                    variations.append({"keyword_a": pa, "keyword_b": pb,
+                                       "url_a": a["url"], "url_b": b["url"], "note": note})
+                else:
+                    rows.append({"severity": "high", "type": "same_primary_keyword",
+                                 "keyword_a": pa, "keyword_b": pb,
+                                 "url_a": a["url"], "url_b": b["url"], "similarity": round(max(ratio, sj), 2)})
+            elif t >= 0.55 or shared >= 2:
+                if not angle and shared <= 1:
+                    variations.append({"keyword_a": pa, "keyword_b": pb,
+                                       "url_a": a["url"], "url_b": b["url"], "note": note})
+                else:
+                    rows.append({"severity": "medium", "type": "similar_angle",
+                                 "keyword_a": pa, "keyword_b": pb,
+                                 "url_a": a["url"], "url_b": b["url"], "similarity": round(max(ratio, sj), 2)})
+            else:
+                variations.append({"keyword_a": pa, "keyword_b": pb,
+                                   "url_a": a["url"], "url_b": b["url"], "note": note})
         elif ratio >= 0.8 or pa in pb or pb in pa:
-            kind, sev = "similar_primary_keyword", "medium"
-        elif jacc >= 0.5:
-            kind, sev = "overlapping_keyword_sets", "low"
+            angle = same_angle(a, b, pa, pb)
+            if shared >= 2 or t >= 0.55 or sj >= 0.4:
+                if not angle and shared <= 1 and sj < 0.3:
+                    variations.append({"keyword_a": pa, "keyword_b": pb,
+                                       "url_a": a["url"], "url_b": b["url"], "note": note})
+                else:
+                    rows.append({"severity": "medium", "type": "similar_primary_keyword",
+                                 "keyword_a": pa, "keyword_b": pb,
+                                 "url_a": a["url"], "url_b": b["url"], "similarity": round(max(ratio, sj), 2)})
+            else:
+                variations.append({"keyword_a": pa, "keyword_b": pb,
+                                   "url_a": a["url"], "url_b": b["url"], "note": note})
         else:
-            continue
-        rows.append({"severity": sev, "type": kind, "keyword_a": pa, "keyword_b": pb,
-                     "url_a": a["url"], "url_b": b["url"], "similarity": round(max(ratio, jacc), 2)})
+            wa, wb = fullwordset(a), fullwordset(b)
+            if _jacc(wa, wb) >= 0.5:
+                if shared >= 3:
+                    rows.append({"severity": "low", "type": "overlapping_keyword_sets",
+                                 "keyword_a": pa, "keyword_b": pb,
+                                 "url_a": a["url"], "url_b": b["url"], "similarity": round(_jacc(wa, wb), 2)})
+                elif _jacc(wa, wb) >= 0.6:
+                    variations.append({"keyword_a": pa, "keyword_b": pb,
+                                       "url_a": a["url"], "url_b": b["url"],
+                                       "note": "تشابه مفردات عامة فقط: لا إجراء"})
     rank = {"high": 0, "medium": 1, "low": 2}
     rows.sort(key=lambda r: (rank[r["severity"]], -r["similarity"]))
-    return rows
+    return rows, variations
 
 
 def intent_for(p):

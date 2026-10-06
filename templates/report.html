@@ -37,6 +37,14 @@ code{font-size:12px;word-break:break-all}
 {% else %}<p>مفيش تعارضات.</p>{% endfor %}
 </div>
 <div class="card">
+<h2>تنويعات long-tail (مش تعارض - تفضل كما هي)</h2>
+<p>الصفحات دي من نفس الكلمة الأم لكن كل واحدة بزاوية مختلفة (منطقة أو لغة أو مستند). دي حاجة صحية مش مشكلة.</p>
+{% for v in variations[:30] %}
+<p><b>{{ v.keyword_a }}</b> ضد <b>{{ v.keyword_b }}</b><br><code>{{ v.url_a }}</code><br><code>{{ v.url_b }}</code><br>{{ v.note }}</p>
+<hr>
+{% else %}<p>مفيش تنويعات.</p>{% endfor %}
+</div>
+<div class="card">
 <h2>جدول الكلمات</h2>
 <table>
 <tr><th>الصفحة</th><th>الأساسية</th><th>ثانوية</th><th>النية</th></tr>
