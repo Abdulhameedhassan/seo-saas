@@ -15,7 +15,9 @@ def chat(user_prompt, max_tokens=2000, temperature=0.7):
     if not key:
         raise AIError("AI_API_KEY غير مضبوط في متغيرات البيئة")
     base = os.environ.get("AI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
-    model = os.environ.get("AI_MODEL", "gpt-4o-mini")
+    model = os.environ.get("AI_MODEL", "")
+    if not model:
+        model = "gemini-2.0-flash" if "generativelanguage" in base else "gpt-4o-mini"
     try:
         r = requests.post(base + "/chat/completions",
                           headers={"Authorization": "Bearer " + key},

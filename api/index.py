@@ -1,5 +1,6 @@
 import os
 import sys
+from urllib.parse import unquote, urlparse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -30,10 +31,8 @@ def audit():
     conflicts, variations = find_conflicts(pages)
     for p in pages:
         p["intent"] = intent_for(p)
-        try:
-            p["slug"] = p["url"].split(".com/")[1].strip("/")
-        except IndexError:
-            p["slug"] = p["url"]
+        path = urlparse(p["url"]).path.strip("/")
+        p["slug"] = unquote(path) if path else p["url"]
     groups = group_conflicts(conflicts)
     for g in groups:
         g["fix"] = fix_for(g["keyword"])
@@ -120,10 +119,15 @@ def wp_run():
             elif action == "rewrite_content":
                 html = rewrite_article(kw, p["content"])
                 keep = {"content": html}
-                if mode == "publish" and p["status"] == "draft":
+                if p["status"] == "draft" and mode == "publish":
                     keep["status"] = "publish"
+                    state = "واتنشر"
+                elif p["status"] == "publish":
+                    state = "واتحدث مباشرة (النسخة القديمة محفوظة في مراجعات وردبريس)"
+                else:
+                    state = "كمسودة"
                 c.update_post(pid, keep)
-                result["messages"].append("اتعدل المحتوى (النسخة القديمة محفوظة في مراجعات وردبريس)")
+                result["messages"].append("اتعدل المحتوى " + state)
                 result["ok"] = True
             result["link"] = p.get("link", "")
     except (WPError, AIError, ValueError) as e:
